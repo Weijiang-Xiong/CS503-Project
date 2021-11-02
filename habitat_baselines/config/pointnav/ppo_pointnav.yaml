@@ -7,16 +7,16 @@ TRAINER_NAME: "ppo"
 ENV_NAME: "NavRLEnv"
 SIMULATOR_GPU_ID: 0
 TORCH_GPU_ID: 0
-VIDEO_OPTION: []
+# VIDEO_OPTION: []
 # Can be uncommented to generate videos.
-# VIDEO_OPTION: ["disk", "tensorboard"]
+VIDEO_OPTION: ["disk", "tensorboard"]
 TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
 # Evaluate on all episodes
 TEST_EPISODE_COUNT: -1
 EVAL_CKPT_PATH_DIR: "data/new_checkpoints"
 NUM_ENVIRONMENTS: 6
-SENSORS: ["DEPTH_SENSOR"]
+SENSORS: ["DEPTH_SENSOR", "RGB_SENSOR"]
 CHECKPOINT_FOLDER: "data/new_checkpoints"
 TOTAL_NUM_STEPS: 75e6
 LOG_INTERVAL: 25

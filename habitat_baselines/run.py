@@ -36,7 +36,7 @@ def main():
         help="Modify config options from command line",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(["--exp-config", "habitat_baselines/config/pointnav/ppo_pointnav_example.yaml", "--run-type", "train"])
     run_exp(**vars(args))
 
 

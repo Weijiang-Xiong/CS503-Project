@@ -13,6 +13,8 @@ from gym import spaces
 from torch import nn as nn
 from torch.nn import functional as F
 
+import visualpriors
+
 from habitat.config import Config
 from habitat.tasks.nav.nav import (
     EpisodicCompassSensor,
@@ -198,6 +200,14 @@ class ResNetEncoder(nn.Module):
         x = self.compression(x)
         return x
 
+class MidLevelEncoder(nn.Module):
+    
+    def __init__(self) -> None:
+        super().__init__()
+        
+    def forward():
+        
+        pass 
 
 class PointNavResNetNet(Net):
     """Network which passes the input image through CNN and concatenates
@@ -218,7 +228,7 @@ class PointNavResNetNet(Net):
         discrete_actions: bool = True,
     ):
         super().__init__()
-
+        self.mid_level_reps = ["normal"]
         self.discrete_actions = discrete_actions
         if discrete_actions:
             self.prev_action_embedding = nn.Embedding(action_space.n + 1, 32)
@@ -326,10 +336,17 @@ class PointNavResNetNet(Net):
         )
 
         if not self.visual_encoder.is_blind:
+            # self.visual_fc = nn.Sequential(
+            #     nn.Flatten(),
+            #     nn.Linear(
+            #         np.prod(self.visual_encoder.output_shape), hidden_size
+            #     ),
+            #     nn.ReLU(True),
+            # )
             self.visual_fc = nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(
-                    np.prod(self.visual_encoder.output_shape), hidden_size
+                    np.prod([1, 8, 16, 16]), hidden_size
                 ),
                 nn.ReLU(True),
             )
@@ -367,7 +384,11 @@ class PointNavResNetNet(Net):
             if "visual_features" in observations:
                 visual_feats = observations["visual_features"]
             else:
-                visual_feats = self.visual_encoder(observations)
+                # visual_feats = self.visual_encoder(observations)
+                image_tensor = observations["rgb"]
+                o_t = image_tensor/255 * 2 - 1
+                o_t = o_t.permute(0, 3, 1, 2)
+                visual_feats = visualpriors.representation_transform(o_t, self.mid_level_reps[0], device="cuda")
 
             visual_feats = self.visual_fc(visual_feats)
             x.append(visual_feats)
