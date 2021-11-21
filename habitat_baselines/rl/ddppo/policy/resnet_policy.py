@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from gym import spaces
 from torch import nn as nn
+from torch._C import Value
 from torch.nn import functional as F
 
 import visualpriors
@@ -75,6 +76,7 @@ class PointNavResNetPolicy(Policy):
                 normalize_visual_inputs=normalize_visual_inputs,
                 force_blind_policy=force_blind_policy,
                 discrete_actions=discrete_actions,
+                net_conf=policy_config.NET_CONF
             ),
             dim_actions=action_space.n,  # for action distribution
             policy_config=policy_config,
@@ -200,14 +202,126 @@ class ResNetEncoder(nn.Module):
         x = self.compression(x)
         return x
 
+class ResNetDepthEncoder(nn.Module):
+    """ copied from ResNetEncoder, and deleted everything related with rgb
+        only process depth 
+
+    """
+    def __init__(
+        self,
+        observation_space: spaces.Dict,
+        baseplanes: int = 32,
+        ngroups: int = 32,
+        spatial_size: int = 128,
+        make_backbone=None,
+        normalize_visual_inputs: bool = False,
+    ):
+        super().__init__()
+        self._n_input_rgb = 0
+        if "depth" in observation_space.spaces:
+            self._n_input_depth = observation_space.spaces["depth"].shape[2]
+            spatial_size = observation_space.spaces["depth"].shape[0] // 2
+        else:
+            self._n_input_depth = 0
+
+        if normalize_visual_inputs:
+            self.running_mean_and_var: nn.Module = RunningMeanAndVar(
+                self._n_input_depth + self._n_input_rgb
+            )
+        else:
+            self.running_mean_and_var = nn.Sequential()
+
+        if not self.is_blind:
+            input_channels = self._n_input_depth + self._n_input_rgb
+            self.backbone = make_backbone(input_channels, baseplanes, ngroups)
+
+            final_spatial = int(
+                spatial_size * self.backbone.final_spatial_compress
+            )
+            after_compression_flat_size = 2048
+            num_compression_channels = int(
+                round(after_compression_flat_size / (final_spatial ** 2))
+            )
+            self.compression = nn.Sequential(
+                nn.Conv2d(
+                    self.backbone.final_channels,
+                    num_compression_channels,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False,
+                ),
+                nn.GroupNorm(1, num_compression_channels),
+                nn.ReLU(True),
+            )
+
+            self.output_shape = (
+                num_compression_channels,
+                final_spatial,
+                final_spatial,
+            )
+
+    @property
+    def is_blind(self):
+        return self._n_input_rgb + self._n_input_depth == 0
+
+    def layer_init(self):
+        for layer in self.modules():
+            if isinstance(layer, (nn.Conv2d, nn.Linear)):
+                nn.init.kaiming_normal_(
+                    layer.weight, nn.init.calculate_gain("relu")
+                )
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, val=0)
+
+    def forward(self, observations: Dict[str, torch.Tensor]) -> torch.Tensor:  # type: ignore
+        if self.is_blind:
+            return None
+
+        cnn_input = []
+
+        if self._n_input_depth > 0:
+            depth_observations = observations["depth"]
+
+            # permute tensor to dimension [BATCH x CHANNEL x HEIGHT X WIDTH]
+            depth_observations = depth_observations.permute(0, 3, 1, 2)
+
+            cnn_input.append(depth_observations)
+
+        x = torch.cat(cnn_input, dim=1)
+        x = F.avg_pool2d(x, 2)
+
+        x = self.running_mean_and_var(x)
+        x = self.backbone(x)
+        x = self.compression(x)
+        return x
+
 class MidLevelEncoder(nn.Module):
     
-    def __init__(self) -> None:
+    def __init__(self, representations=None, depth_encoder:ResNetDepthEncoder=None) -> None:
         super().__init__()
-        
-    def forward():
-        
-        pass 
+        # from midlevel repo, one representation has a fixed size (batch, 8, 16, 16)
+        # multiple representations will be concatenated along the feature channel 
+        # batch size is set to 1, but in fact, it doesn't affect feature dimensions 
+        self.repr = representations
+        self.is_blind = False
+        self.output_shape = [1, 8*len(self.repr), 16, 16] 
+        # midlevel only handles rgb input, so we use a resnet depth encoder
+        self.depth_encoder = depth_encoder if depth_encoder is not None else None
+        if self.depth_encoder:
+            self.output_shape = np.prod(self.output_shape) + np.prod(self.depth_encoder.output_shape)
+            
+    def forward(self, observations):
+        image_tensor = observations["rgb"]
+        batch_size = image_tensor.shape[0]
+        o_t = image_tensor/255 * 2 - 1
+        o_t = o_t.permute(0, 3, 1, 2)
+        mid_features = visualpriors.multi_representation_transform(o_t, feature_tasks=self.repr, device="cuda")
+        if self.depth_encoder:
+            depth_feature = self.depth_encoder(observations)
+            mid_features = torch.cat((mid_features.flatten(start_dim=1), 
+                                      depth_feature.flatten(start_dim=1)), dim=1) 
+            # mid_features = mid_features.reshape(batch_size, -1)
+        return mid_features 
 
 class PointNavResNetNet(Net):
     """Network which passes the input image through CNN and concatenates
@@ -226,6 +340,7 @@ class PointNavResNetNet(Net):
         normalize_visual_inputs: bool,
         force_blind_policy: bool = False,
         discrete_actions: bool = True,
+        net_conf=None
     ):
         super().__init__()
         self.mid_level_reps = ["normal"]
@@ -326,27 +441,34 @@ class PointNavResNetNet(Net):
             rnn_input_size += hidden_size
 
         self._hidden_size = hidden_size
-
-        self.visual_encoder = ResNetEncoder(
-            observation_space if not force_blind_policy else spaces.Dict({}),
-            baseplanes=resnet_baseplanes,
-            ngroups=resnet_baseplanes // 2,
-            make_backbone=getattr(resnet, backbone),
-            normalize_visual_inputs=normalize_visual_inputs,
-        )
+        if net_conf["encoder"] == "MidLevelEncoder":
+            if net_conf["depth"] == True:
+                depth_encoder = ResNetDepthEncoder(
+                    observation_space if not force_blind_policy else spaces.Dict({}),
+                    baseplanes=resnet_baseplanes,
+                    ngroups=resnet_baseplanes // 2,
+                    make_backbone=getattr(resnet, backbone),
+                    normalize_visual_inputs=normalize_visual_inputs,
+                    )
+            representations = net_conf.get("representations", ["normal"])
+            self.visual_encoder = MidLevelEncoder(representations, depth_encoder)
+            
+        elif net_conf["encoder"] == "ResNetEncoder":
+            self.visual_encoder = ResNetEncoder(
+                observation_space if not force_blind_policy else spaces.Dict({}),
+                baseplanes=resnet_baseplanes,
+                ngroups=resnet_baseplanes // 2,
+                make_backbone=getattr(resnet, backbone),
+                normalize_visual_inputs=normalize_visual_inputs,
+            )
+        else:
+            raise ValueError("unrecognized feature encoder, please use ResNetEncoder or MidLevelEncoder")
 
         if not self.visual_encoder.is_blind:
-            # self.visual_fc = nn.Sequential(
-            #     nn.Flatten(),
-            #     nn.Linear(
-            #         np.prod(self.visual_encoder.output_shape), hidden_size
-            #     ),
-            #     nn.ReLU(True),
-            # )
             self.visual_fc = nn.Sequential(
                 nn.Flatten(),
                 nn.Linear(
-                    np.prod([1, 8, 16, 16]), hidden_size
+                    np.prod(self.visual_encoder.output_shape), hidden_size
                 ),
                 nn.ReLU(True),
             )
@@ -384,11 +506,7 @@ class PointNavResNetNet(Net):
             if "visual_features" in observations:
                 visual_feats = observations["visual_features"]
             else:
-                # visual_feats = self.visual_encoder(observations)
-                image_tensor = observations["rgb"]
-                o_t = image_tensor/255 * 2 - 1
-                o_t = o_t.permute(0, 3, 1, 2)
-                visual_feats = visualpriors.representation_transform(o_t, self.mid_level_reps[0], device="cuda")
+                visual_feats = self.visual_encoder(observations)
 
             visual_feats = self.visual_fc(visual_feats)
             x.append(visual_feats)

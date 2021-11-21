@@ -18,6 +18,7 @@ EVAL_CKPT_PATH_DIR: "data/new_checkpoints"
 NUM_ENVIRONMENTS: 6
 SENSORS: ["DEPTH_SENSOR", "RGB_SENSOR"]
 CHECKPOINT_FOLDER: "data/new_checkpoints"
+NUM_UPDATES: -1 # copied from ppo_pointnav_example.yaml
 TOTAL_NUM_STEPS: 75e6
 LOG_INTERVAL: 25
 NUM_CHECKPOINTS: 100
@@ -26,6 +27,12 @@ NUM_CHECKPOINTS: 100
 FORCE_TORCH_SINGLE_THREADED: True
 
 RL:
+  POLICY:
+    NET_CONF:
+      encoder: "ResNetEncoder" # ResNetEncoder MidLevelEncoder
+      representations: ["normal"]
+      depth: True # use a separate resnet encoder for depth
+
   PPO:
     # ppo params
     clip_param: 0.2

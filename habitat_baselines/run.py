@@ -35,8 +35,11 @@ def main():
         nargs=argparse.REMAINDER,
         help="Modify config options from command line",
     )
-
-    args = parser.parse_args(["--exp-config", "habitat_baselines/config/pointnav/ppo_pointnav_example.yaml", "--run-type", "train"])
+    # put this list into parser.parse_args() for debugging
+    # args1 = ["--exp-config", "habitat_baselines/config/pointnav/ppo_pointnav_example.yaml", "--run-type", "train"]
+    # args2 = ["RL.POLICY.NET_CONF.encoder", "MidLevelEncoder", "RL.POLICY.NET_CONF.representations", "[\"normal\", \"keypoints3d\"]"]
+    # args = parser.parse_args(args1+args2)
+    args = parser.parse_args()
     run_exp(**vars(args))
 
 
@@ -74,6 +77,7 @@ def run_exp(exp_config: str, run_type: str, opts=None) -> None:
         None.
     """
     config = get_config(exp_config, opts)
+    print(config.RL.POLICY.NET_CONF)
     execute_exp(config, run_type)
 
 

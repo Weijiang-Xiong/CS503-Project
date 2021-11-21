@@ -24,6 +24,12 @@ NUM_CHECKPOINTS: 50
 FORCE_TORCH_SINGLE_THREADED: True
 
 RL:
+  POLICY:
+    NET_CONF:
+      encoder: "ResNetEncoder" # ResNetEncoder MidLevelEncoder
+      representations: ["normal"]
+      depth: True # use a separate resnet encoder for depth
+
   PPO:
     # ppo params
     clip_param: 0.1
