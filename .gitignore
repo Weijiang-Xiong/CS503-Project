@@ -89,3 +89,6 @@ data
 
 # vim
 *.swp
+
+#
+*.mp4

@@ -14,10 +14,10 @@ TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
 # Evaluate on all episodes
 TEST_EPISODE_COUNT: -1
-EVAL_CKPT_PATH_DIR: "data/new_checkpoints"
+EVAL_CKPT_PATH_DIR: "data/not_example"
 NUM_ENVIRONMENTS: 6
 SENSORS: ["DEPTH_SENSOR", "RGB_SENSOR"]
-CHECKPOINT_FOLDER: "data/new_checkpoints"
+CHECKPOINT_FOLDER: "data/not_example"
 NUM_UPDATES: -1 # copied from ppo_pointnav_example.yaml
 TOTAL_NUM_STEPS: 75e6
 LOG_INTERVAL: 25
@@ -32,6 +32,7 @@ RL:
       encoder: "ResNetEncoder" # ResNetEncoder MidLevelEncoder
       representations: ["normal"]
       depth: True # use a separate resnet encoder for depth
+      corruption: [] # empty corruption for training, manually assign this during testing 
 
   PPO:
     # ppo params

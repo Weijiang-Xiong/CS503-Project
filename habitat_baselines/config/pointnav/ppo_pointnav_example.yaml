@@ -10,7 +10,7 @@ VIDEO_OPTION: ["disk", "tensorboard"]
 TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
 # To evaluate on all episodes, set this to -1
-TEST_EPISODE_COUNT: 2
+TEST_EPISODE_COUNT: -1
 EVAL_CKPT_PATH_DIR: "data/new_checkpoints"
 NUM_ENVIRONMENTS: 1
 SENSORS: ["RGB_SENSOR", "DEPTH_SENSOR"]
@@ -27,8 +27,9 @@ RL:
   POLICY:
     NET_CONF:
       encoder: "ResNetEncoder" # ResNetEncoder MidLevelEncoder
-      representations: ["normal"]
-      depth: True # use a separate resnet encoder for depth
+      representations: ["normal"] # only works when the encoder is MidLevelEncoder
+      depth: True # use a separate resnet encoder for depth # only works when the encoder is MidLevelEncoder
+      corruption: [] # empty corruption for training, manually assign this during testing 
 
   PPO:
     # ppo params
