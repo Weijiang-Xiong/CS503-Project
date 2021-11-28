@@ -37,6 +37,9 @@ from habitat_baselines.rl.models.rnn_state_encoder import (
 )
 from habitat_baselines.rl.ppo import Net, Policy
 
+from PIL import Image
+from imagenet_c import corrupt
+import torchvision.transforms.functional as TF
 
 @baseline_registry.register_policy
 class PointNavResNetPolicy(Policy):
@@ -294,7 +297,30 @@ class ResNetDepthEncoder(nn.Module):
         x = self.backbone(x)
         x = self.compression(x)
         return x
-
+class VisualCorruptor:
+    
+    def __init__(self, corruption, severity:int=1) -> None:
+        if isinstance(corruption, list):
+            corruption = corruption[0]
+        self.corruption = corruption
+        self.severity = severity
+    
+    def add_corruption(self, observations):
+        """ image: an image tensor with pixel intensity, size (batch_size, 256, 256, 3)
+        """
+        device = observations["rgb"].device
+        images = observations["rgb"].clone().detach().cpu().numpy()
+        batch_size = images.shape[0]
+        image_list = []
+        for idx in range(batch_size):
+            # corrupt needs (256, 256, 3) numpy array (cpu)
+            corrupt_img = corrupt(images[idx], severity=self.severity, corruption_name=self.corruption)
+            image_list.append(torch.tensor(corrupt_img, dtype=torch.uint8, device=device).unsqueeze(0))
+        
+        observations["rgb"] = torch.cat(image_list, dim=0)
+        
+        return observations
+        
 class MidLevelEncoder(nn.Module):
     
     def __init__(self, representations=None, depth_encoder:ResNetDepthEncoder=None) -> None:
@@ -441,6 +467,12 @@ class PointNavResNetNet(Net):
             rnn_input_size += hidden_size
 
         self._hidden_size = hidden_size
+        
+        if len(net_conf.get('corruption', []))>0:
+            corruption = net_conf.get('corruption')
+            severity = net_conf.get('severity', 1)
+            self.corruptor = VisualCorruptor(corruption, severity=severity)
+        
         if net_conf["encoder"] == "MidLevelEncoder":
             if net_conf["depth"] == True:
                 depth_encoder = ResNetDepthEncoder(
@@ -506,6 +538,7 @@ class PointNavResNetNet(Net):
             if "visual_features" in observations:
                 visual_feats = observations["visual_features"]
             else:
+                observations = self.corruptor.add_corruption(observations)
                 visual_feats = self.visual_encoder(observations)
 
             visual_feats = self.visual_fc(visual_feats)
