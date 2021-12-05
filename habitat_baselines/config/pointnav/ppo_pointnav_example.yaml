@@ -6,7 +6,7 @@ TRAINER_NAME: "ppo"
 ENV_NAME: "NavRLEnv"
 SIMULATOR_GPU_ID: 0
 TORCH_GPU_ID: 0
-VIDEO_OPTION: ["disk", "tensorboard"]
+VIDEO_OPTION: ["disk"] # add "tensorboard" to display video in tensorboard 
 TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
 # To evaluate on all episodes, set this to -1

@@ -39,7 +39,6 @@ from habitat_baselines.rl.ppo import Net, Policy
 
 from PIL import Image
 from imagenet_c import corrupt
-import torchvision.transforms.functional as TF
 
 @baseline_registry.register_policy
 class PointNavResNetPolicy(Policy):
@@ -300,10 +299,10 @@ class ResNetDepthEncoder(nn.Module):
 class VisualCorruptor:
     
     def __init__(self, corruption, severity:int=1) -> None:
-        if isinstance(corruption, list):
-            corruption = corruption[0]
         self.corruption = corruption
         self.severity = severity
+        if not isinstance(self.corruption, list):
+            self.corruption = [corruption]
     
     def add_corruption(self, observations):
         """ image: an image tensor with pixel intensity, size (batch_size, 256, 256, 3)
@@ -314,8 +313,16 @@ class VisualCorruptor:
         image_list = []
         for idx in range(batch_size):
             # corrupt needs (256, 256, 3) numpy array (cpu)
-            corrupt_img = corrupt(images[idx], severity=self.severity, corruption_name=self.corruption)
-            image_list.append(torch.tensor(corrupt_img, dtype=torch.uint8, device=device).unsqueeze(0))
+            # severity an integer in [0, 5]
+            # corruption_name: 
+            # must be one of 'gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur',
+            # 'glass_blur', 'motion_blur', 'zoom_blur', 'snow', 'frost', 'fog',
+            # 'brightness', 'contrast', 'elastic_transform', 'pixelate', 'jpeg_compression',
+            # 'speckle_noise', 'gaussian_blur', 'spatter', 'saturate';
+            img = images[idx]
+            for corruption in self.corruption:
+                img = corrupt(img, severity=self.severity, corruption_name=corruption)
+            image_list.append(torch.tensor(img, dtype=torch.uint8, device=device).unsqueeze(0))
         
         observations["rgb"] = torch.cat(image_list, dim=0)
         

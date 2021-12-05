@@ -9,7 +9,7 @@ SIMULATOR_GPU_ID: 0
 TORCH_GPU_ID: 0
 # VIDEO_OPTION: []
 # Can be uncommented to generate videos.
-VIDEO_OPTION: ["disk", "tensorboard"]
+VIDEO_OPTION: ["disk"] # add "tensorboard" to display video in tensorboard 
 TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
 # Evaluate on all episodes
