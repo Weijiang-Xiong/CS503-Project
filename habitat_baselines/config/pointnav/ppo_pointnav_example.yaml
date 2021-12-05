@@ -30,6 +30,7 @@ RL:
       representations: ["normal"] # only works when the encoder is MidLevelEncoder
       depth: True # use a separate resnet encoder for depth # only works when the encoder is MidLevelEncoder
       corruption: [] # empty corruption for training, manually assign this during testing 
+      severity: 1 # severity of the corruption, must be 1, 2, 3, 4 or 5
 
   PPO:
     # ppo params
