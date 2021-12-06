@@ -65,7 +65,7 @@ def form_complete_command(basedir, run_type, encoder_type, representations, corr
     return complete_command
 
 if __name__ == "__main__":
-    basedir = "habitat-lab"
+    basedir = "./"
     run_type = "eval"
     
     repeats = [1]
