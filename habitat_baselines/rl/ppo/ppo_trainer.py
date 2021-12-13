@@ -1033,6 +1033,7 @@ class PPOTrainer(BaseRLTrainer):
             current_episode_reward += rewards
             next_episodes = self.envs.current_episodes()
             envs_to_pause = []
+            # test environment
             n_envs = self.envs.num_envs
             for i in range(n_envs):
                 if (
@@ -1058,12 +1059,58 @@ class PPOTrainer(BaseRLTrainer):
                         )
                     ] = episode_stats
 
+                    # testing env index
+                    episode_id=current_episodes[i].episode_id
+                    # training eopch
+                    checkpoint_idx = checkpoint_idx
+                    save_log = False
+                    if save_log:
+                        res_dict = {
+                            'episode': int(episode_id),
+                            'ckpt': int(checkpoint_idx),
+                        }
+
+                        metrics = self._extract_scalars_from_info(infos[i])
+                        report_metrics_ = ['distance_to_goal','SR','SPL','collisions_count']
+                        for res_k in report_metrics_:
+                            if res_k in metrics.keys():
+                                res_dict.update({res_k: metrics[res_k]})
+                            else:
+                                res_dict.update({res_k: np.nan})
+
+                        curr_log_df = pd.DataFrame(res_dict)
+                        curr_log_df.columns = ['episode', 'ckpt'] + report_metrics_
+
+                        # save_path = base_dir / "{}.csv".format(video_dir.name)
+                        log_file = os.path.join*(self.config.VIDEO_DIR, "logs.csv")
+                        import pandas as pd
+                        if os.path.exists(log_file):
+                            log_df = pd.read_csv(log_file)
+                            if 'episode' in log_df:
+                                log_df['episode'] = log_df['episode'].astype(int)
+                            else:
+                                log_df['episode'] = len(log_df) * [np.nan]
+                            if 'ckpt' in log_df:
+                                log_df['ckpt'] = log_df['ckpt'].astype(int)
+                            else:
+                                log_df['ckpt'] = len(log_df) * [np.nan]
+                            if 'collisions_count' in log_df:
+                                log_df['collisions_count'] = log_df['collisions_count'].astype(int)
+                            else:
+                                log_df['collisions_count'] = len(log_df) * [0]
+                            log_df = pd.concat([log_df, curr_log_df], ignore_index=True)
+                        else:
+                            log_df = curr_log_df
+                        log_df = log_df.sort_values(['episode', 'ckpt']).reset_index(drop=True)
+
+                        log_df.to_csv(log_file, index=None)
+
                     if len(self.config.VIDEO_OPTION) > 0:
                         generate_video(
                             video_option=self.config.VIDEO_OPTION,
                             video_dir=self.config.VIDEO_DIR,
                             images=rgb_frames[i],
-                            episode_id=current_episodes[i].episode_id,
+                            episode_id=episode_id,
                             checkpoint_idx=checkpoint_index,
                             metrics=self._extract_scalars_from_info(infos[i]),
                             tb_writer=writer,
