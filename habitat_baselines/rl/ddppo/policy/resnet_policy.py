@@ -296,6 +296,7 @@ class ResNetDepthEncoder(nn.Module):
         x = self.backbone(x)
         x = self.compression(x)
         return x
+
 class VisualCorruptor:
     
     def __init__(self, corruption, severity:int=1) -> None:
@@ -376,7 +377,6 @@ class PointNavResNetNet(Net):
         net_conf=None
     ):
         super().__init__()
-        self.mid_level_reps = ["normal"]
         self.discrete_actions = discrete_actions
         if discrete_actions:
             self.prev_action_embedding = nn.Embedding(action_space.n + 1, 32)
