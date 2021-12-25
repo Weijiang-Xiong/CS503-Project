@@ -1,14 +1,25 @@
 ## CS503 Project Repo
 
-Project based on [habitat-lab](HABITAT_README.md)
+This is the repo for the course project of CS-503 Visual Intelligence: Machines and Minds at EPFL. The project investigates the robustness of mid-level-based navigation agents under the effect of realistic visual corruptions. This implementation is based on [habitat-lab](HABITAT_README.md). The descriptions below provides the steps to setup, run our experiments and get a summary of results. 
 
-### download dataset
+We recommend you to create a virtual environment for this repo (as habitat needs a lot of dependencies)
+
+### Download dataset
+
+please refer to [original readme](HABITAT_README.md) for details, we only summarize the related steps here
+
+- Download and extract habitat test-scene, and extract it under `habitat-lab`, so the files would look like `habitat-lab/data/datasets/pointnav/habitat-test-scenes/v1/train/train.json.gz`
+
+```
+aria2c -x 4 http://dl.fbaipublicfiles.com/habitat/habitat-test-scenes.zip
+```
+
 - download and extract gibson scene dataset, so the files look like `data/scene_datasets/gibson/{scene}.glb`
   
 ```bash 
 aria2c -x 4 https://dl.fbaipublicfiles.com/habitat/data/scene_datasets/gibson_habitat.zip
 ```
-    
+
 - download and extract the pointnav dataset so the files look like `data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz`
 
 ```bash 
@@ -16,7 +27,7 @@ aria2c -x 4 https://dl.fbaipublicfiles.com/habitat/data/datasets/pointnav/gibson
 ```
 
 
-### install mid-level repo and imagenet-c
+### Install mid-level repo and imagenet-c
 
 Mid-level repo
 
@@ -37,6 +48,8 @@ python -m pip install -e .
 ```
 
 ### Experiment configs
+
+We implemented our idea based on the [policy network of Habitat](habitat_baselines\rl\ddppo\policy\resnet_policy.py), where we created a container class `MidLevelEncoder`for mid-level representations, and a `VisualCorruptor` for visual corruptions from imagenet-c. After that we integrated them into the pointnav network `PointNavResNetNet`. 
 
 File `habitat_baselines/config/pointnav/ppo_pointnav_example.yaml` has a section as shown in the code block below.
 To use mid-level representations during RL training, set `encoder` to `"MidLevelEncoder"`, and then set `representations` to a list of required mid-level features. 
@@ -69,7 +82,7 @@ sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines
 ### How to form up a complete command 
 
 - common part of the training command, running evaluation, the last `train` should be replaced with `eval`
-    
+  
     ```bash
     sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines/config/pointnav/ppo_pointnav_example.yaml --run-type train
     ```
@@ -79,7 +92,7 @@ sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines
     - assign video path: `VIDEO_DIR video/my_video_dir`
     - use ResNet encoder: `RL.POLICY.NET_CONF.encoder ResNetEncoder`
     - use mid-level encoder: `RL.POLICY.NET_CONF.encoder MidLevelEncoder RL.POLICY.NET_CONF.representations "[\"normal\", \"keypoints3d\"]"`
-    - add corruption (**only in testing, don't do this in training**)
+    - add corruption (**only in testing, we didn't do this in training**)
      `RL.POLICY.NET_CONF.corruption "[\"defocus_blur\", \"motion_blur\"]" RL.POLICY.NET_CONF.severity 1`
 
 - how to form a complete command:
@@ -90,12 +103,12 @@ sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines
 
 
 ```bash
-# an example with resnet encoder
-sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines/config/pointnav/ppo_pointnav_example.yaml --run-type train EVAL_CKPT_PATH_DIR data/ckpt/my_checkpoint CHECKPOINT_FOLDER data/ckpt/my_checkpoint VIDEO_DIR video/my_video_dir RL.POLICY.NET_CONF.encoder ResNetEncoder
+# an example with resnet encoder and no corruption 
+python -u habitat_baselines/run.py --exp-config habitat_baselines/config/pointnav/ppo_pointnav_example.yaml --run-type train EVAL_CKPT_PATH_DIR data/ckpt/my_checkpoint CHECKPOINT_FOLDER data/ckpt/my_checkpoint VIDEO_DIR video/my_video_dir RL.POLICY.NET_CONF.encoder ResNetEncoder
 ```
 
 - what mid level feature to use: `keypoints3d`, `normal`, `curvature`, `denoising`, `edge_texture`
-    
+  
     evaluated groups: 
     
     1. `keypoints3d` 
@@ -109,7 +122,7 @@ sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines
     5. `keypoints3d`, `edge_texture`
     
     - all supported
-        
+      
         ```bash
         autoencoding          depth_euclidean          jigsaw                  reshading          
         colorization          edge_occlusion           keypoints2d             room_layout      
@@ -122,13 +135,33 @@ sbatch python_wrapper.sh habitat_baselines/run.py --exp-config habitat_baselines
 
 - what corruptions to use `brightness`, `defocus_blur`, `motion_blur`, `spatter`, `speckle_noise`
     - all supported
-        
+      
         ```
         gaussian_noise, shot_noise, impulse_noise, defocus_blur, glass_blur, motion_blur, 
         zoom_blur, snow, frost, fog, brightness, contrast, elastic_transform, pixelate, 
         jpeg_compression, speckle_noise, gaussian_blur, spatter, saturate
         ```
 
+### Submit job to EPFL IZAR cluster
+
+This section is meant for EPFL IZAR only, but should also work on other slurm based systems
+
+To submit jobs, first modify the `--account` flag in `python_wrapper.sh` and `submit_job.py` into your cluster account (it's usually `master` for master students)
+
+- Submit one job: replace `python -u` in the above example command with `sbatch python_wrapper.sh` 
+- Submit multiple jobs: use the script `python submit_job.py`, look at the comments for details
+
+### Generate result summary
+
+Habitat will generate a lot of video records during evaluation, to get the performance from the video files
+
+```python
+python video_to_csv.py
+```
+
+This repo already contains the csv files for from our experiments (at ./video/)
+
+Then run the notebook `analyze_result.ipynb`, all our results should be there.
 
 ### Troubleshooting 
 

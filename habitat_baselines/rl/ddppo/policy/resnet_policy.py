@@ -489,6 +489,8 @@ class PointNavResNetNet(Net):
                     make_backbone=getattr(resnet, backbone),
                     normalize_visual_inputs=normalize_visual_inputs,
                     )
+            else:
+                depth_encoder = None
             representations = net_conf.get("representations", ["normal"])
             self.visual_encoder = MidLevelEncoder(representations, depth_encoder)
             
