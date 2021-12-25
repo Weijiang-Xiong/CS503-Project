@@ -37,7 +37,7 @@ def main():
     )
     # put this list into parser.parse_args() for debugging
     # args1 = ["--exp-config", "habitat_baselines/config/pointnav/ppo_pointnav_example.yaml", "--run-type", "train"]
-    # args2 = ["RL.POLICY.NET_CONF.encoder", "MidLevelEncoder", "RL.POLICY.NET_CONF.representations", "[\"normal\", \"keypoints3d\"]"]
+    # args2 = ["RL.POLICY.NET_CONF.encoder", "ResNetEncoder"]
     # args3 = ["RL.POLICY.NET_CONF.corruption",  "[\"defocus_blur\", \"motion_blur\"]"]
     # args = parser.parse_args(args1+args2+args3)
     args = parser.parse_args()
