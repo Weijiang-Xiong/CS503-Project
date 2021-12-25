@@ -10,7 +10,7 @@ VIDEO_OPTION: ["disk"] # add "tensorboard" to display video in tensorboard
 TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
 # To evaluate on all episodes, set this to -1
-TEST_EPISODE_COUNT: -1
+TEST_EPISODE_COUNT: 15
 EVAL_CKPT_PATH_DIR: "data/new_checkpoints"
 NUM_ENVIRONMENTS: 1
 SENSORS: ["RGB_SENSOR", "DEPTH_SENSOR"]

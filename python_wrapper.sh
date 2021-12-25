@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name RUN_TITAN
-#SBATCH --account=vita
+#SBATCH --job-name RUN_EXP
+#SBATCH --account=YOUR_ACCOUNT
 #SBATCH --nodes 1
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
